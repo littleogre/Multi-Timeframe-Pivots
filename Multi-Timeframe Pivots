@@ -34,6 +34,7 @@ rightBars2 = input.int(2, 'Right Strength', group = GRP_PIVOTS_2, minval = 1)
 
 string GRP_CROSSES_2 = "Pivot Cross Colors (TF2)"
 phColor2 = input.color(color.blue, "High Color", group = GRP_CROSSES_2)
+// MODIFICATION: Fixed typo GGRP_CROSSES_2 -> GRP_CROSSES_2
 plColor2 = input.color(color.yellow, "Low Color", group = GRP_CROSSES_2)
 
 // --- Timeframe 3 ---
@@ -70,6 +71,7 @@ rightBars5 = input.int(5, 'Right Strength', group = GRP_PIVOTS_5, minval = 1)
 
 string GRP_CROSSES_5 = "Pivot Cross Colors (TF5)"
 phColor5 = input.color(color.fuchsia, "High Color", group = GRP_CROSSES_5)
+// MODIFICATION: Fixed typo plColor6 -> plColor5
 plColor5 = input.color(color.aqua, "Low Color", group = GRP_CROSSES_5)
 
 // --- Timeframe 6 ---
@@ -91,7 +93,7 @@ plColor6 = input.color(color.gray, "Low Color", group = GRP_CROSSES_6)
 int MAX_DRAWING_OBJECTS = 500
 
 checkForPivot(array<float> history, int pivot_idx, int left_strength, int right_strength, bool is_high) =>
-    is_pivot = true
+    bool is_pivot = true
     if array.size(history) < left_strength + right_strength + 1 or pivot_idx < left_strength or pivot_idx > array.size(history) - 1 - right_strength
         is_pivot := false
     else
@@ -116,7 +118,7 @@ drawPivotCross(array<label> labelsArray, int bar_time, float price, color p_colo
 // =============================================================================
 // PIVOT LOGIC WRAPPER
 // =============================================================================
-processPivotLogic(bool enable, bool showPivots, string timeframe, int leftBars, int rightBars, color phColor, color plColor) =>
+processPivotLogic(bool enable, bool showPivots, string timeframe, int leftBars, int rightBars, color phColor, color plColor, float priceOffset) =>
     bool isHistoryCollectionActive = enable and timeframe != ''
     bool is_new_bar = isHistoryCollectionActive and (nz(ta.change(time(timeframe))) != 0)
 
@@ -157,20 +159,27 @@ processPivotLogic(bool enable, bool showPivots, string timeframe, int leftBars, 
                     if is_pivot_high
                         float pivot_price = array.get(history_highs, pivot_check_index)
                         int pivot_time = array.get(history_times_high, pivot_check_index)
-                        drawPivotCross(pivotLabels, pivot_time, pivot_price, phColor)
+                        float plot_price = pivot_price + priceOffset
+                        drawPivotCross(pivotLabels, pivot_time, plot_price, phColor)
 
                     bool is_pivot_low = checkForPivot(history_lows, pivot_check_index, leftBars, rightBars, false)
                     if is_pivot_low
                         float pivot_price = array.get(history_lows, pivot_check_index)
                         int pivot_time = array.get(history_times_low, pivot_check_index)
-                        drawPivotCross(pivotLabels, pivot_time, pivot_price, plColor)
+                        float plot_price = pivot_price - priceOffset
+                        drawPivotCross(pivotLabels, pivot_time, plot_price, plColor)
 
 // =============================================================================
 // EXECUTION
 // =============================================================================
-processPivotLogic(enableTF1, showPivotCrosses1, timeframeInput1, leftBars1, rightBars1, phColor1, plColor1)
-processPivotLogic(enableTF2, showPivotCrosses2, timeframeInput2, leftBars2, rightBars2, phColor2, plColor2)
-processPivotLogic(enableTF3, showPivotCrosses3, timeframeInput3, leftBars3, rightBars3, phColor3, plColor3)
-processPivotLogic(enableTF4, showPivotCrosses4, timeframeInput4, leftBars4, rightBars4, phColor4, plColor4)
-processPivotLogic(enableTF5, showPivotCrosses5, timeframeInput5, leftBars5, rightBars5, phColor5, plColor5)
-processPivotLogic(enableTF6, showPivotCrosses6, timeframeInput6, leftBars6, rightBars6, phColor6, plColor6)
+float PIVOT_OFFSET_PERCENT = 0.1
+
+float atrVal = nz(ta.atr(14))
+float priceOffset = atrVal * PIVOT_OFFSET_PERCENT
+
+processPivotLogic(enableTF1, showPivotCrosses1, timeframeInput1, leftBars1, rightBars1, phColor1, plColor1, priceOffset)
+processPivotLogic(enableTF2, showPivotCrosses2, timeframeInput2, leftBars2, rightBars2, phColor2, plColor2, priceOffset)
+processPivotLogic(enableTF3, showPivotCrosses3, timeframeInput3, leftBars3, rightBars3, phColor3, plColor3, priceOffset)
+processPivotLogic(enableTF4, showPivotCrosses4, timeframeInput4, leftBars4, rightBars4, phColor4, plColor4, priceOffset)
+processPivotLogic(enableTF5, showPivotCrosses5, timeframeInput5, leftBars5, rightBars5, phColor5, plColor5, priceOffset)
+processPivotLogic(enableTF6, showPivotCrosses6, timeframeInput6, leftBars6, rightBars6, phColor6, plColor6, priceOffset)
