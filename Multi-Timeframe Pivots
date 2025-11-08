@@ -1,0 +1,176 @@
+//@version=6
+// -----------------------------------------------------------------------------
+// Title:         Standalone Pivot Indicator
+// Author:        Nick
+// Version:       3.0.0
+// -----------------------------------------------------------------------------
+
+import TradingView/ta/6 as ta
+
+indicator('Standalone Pivot Indicator', 'Pivots', overlay = true, max_labels_count=500, max_lines_count=500)
+
+// =============================================================================
+// INPUTS
+// =============================================================================
+// --- Timeframe 1 ---
+string GRP_PIVOTS_1 = "Pivot Settings (TF1)"
+enableTF1 = input.bool(true, "Enable Timeframe 1", group = GRP_PIVOTS_1)
+showPivotCrosses1 = input.bool(true, 'Show Pivots', group = GRP_PIVOTS_1)
+timeframeInput1 = input.timeframe('5', 'Timeframe', group = GRP_PIVOTS_1)
+leftBars1 = input.int(1, 'Left Strength', group = GRP_PIVOTS_1, minval = 1)
+rightBars1 = input.int(1, 'Right Strength', group = GRP_PIVOTS_1, minval = 1)
+
+string GRP_CROSSES_1 = "Pivot Cross Colors (TF1)"
+phColor1 = input.color(color.red, "High Color", group = GRP_CROSSES_1)
+plColor1 = input.color(color.green, "Low Color", group = GRP_CROSSES_1)
+
+// --- Timeframe 2 ---
+string GRP_PIVOTS_2 = "Pivot Settings (TF2)"
+enableTF2 = input.bool(false, "Enable Timeframe 2", group = GRP_PIVOTS_2)
+showPivotCrosses2 = input.bool(true, 'Show Pivots', group = GRP_PIVOTS_2)
+timeframeInput2 = input.timeframe('60', 'Timeframe', group = GRP_PIVOTS_2)
+leftBars2 = input.int(2, 'Left Strength', group = GRP_PIVOTS_2, minval = 1)
+rightBars2 = input.int(2, 'Right Strength', group = GRP_PIVOTS_2, minval = 1)
+
+string GRP_CROSSES_2 = "Pivot Cross Colors (TF2)"
+phColor2 = input.color(color.blue, "High Color", group = GRP_CROSSES_2)
+plColor2 = input.color(color.yellow, "Low Color", group = GRP_CROSSES_2)
+
+// --- Timeframe 3 ---
+string GRP_PIVOTS_3 = "Pivot Settings (TF3)"
+enableTF3 = input.bool(false, "Enable Timeframe 3", group = GRP_PIVOTS_3)
+showPivotCrosses3 = input.bool(true, 'Show Pivots', group = GRP_PIVOTS_3)
+timeframeInput3 = input.timeframe('240', 'Timeframe', group = GRP_PIVOTS_3)
+leftBars3 = input.int(3, 'Left Strength', group = GRP_PIVOTS_3, minval = 1)
+rightBars3 = input.int(3, 'Right Strength', group = GRP_PIVOTS_3, minval = 1)
+
+string GRP_CROSSES_3 = "Pivot Cross Colors (TF3)"
+phColor3 = input.color(color.orange, "High Color", group = GRP_CROSSES_3)
+plColor3 = input.color(color.purple, "Low Color", group = GRP_CROSSES_3)
+
+// --- Timeframe 4 ---
+string GRP_PIVOTS_4 = "Pivot Settings (TF4)"
+enableTF4 = input.bool(false, "Enable Timeframe 4", group = GRP_PIVOTS_4)
+showPivotCrosses4 = input.bool(true, 'Show Pivots', group = GRP_PIVOTS_4)
+timeframeInput4 = input.timeframe('D', 'Timeframe', group = GRP_PIVOTS_4)
+leftBars4 = input.int(4, 'Left Strength', group = GRP_PIVOTS_4, minval = 1)
+rightBars4 = input.int(4, 'Right Strength', group = GRP_PIVOTS_4, minval = 1)
+
+string GRP_CROSSES_4 = "Pivot Cross Colors (TF4)"
+phColor4 = input.color(color.maroon, "High Color", group = GRP_CROSSES_4)
+plColor4 = input.color(color.lime, "Low Color", group = GRP_CROSSES_4)
+
+// --- Timeframe 5 ---
+string GRP_PIVOTS_5 = "Pivot Settings (TF5)"
+enableTF5 = input.bool(false, "Enable Timeframe 5", group = GRP_PIVOTS_5)
+showPivotCrosses5 = input.bool(true, 'Show Pivots', group = GRP_PIVOTS_5)
+timeframeInput5 = input.timeframe('W', 'Timeframe', group = GRP_PIVOTS_5)
+leftBars5 = input.int(5, 'Left Strength', group = GRP_PIVOTS_5, minval = 1)
+rightBars5 = input.int(5, 'Right Strength', group = GRP_PIVOTS_5, minval = 1)
+
+string GRP_CROSSES_5 = "Pivot Cross Colors (TF5)"
+phColor5 = input.color(color.fuchsia, "High Color", group = GRP_CROSSES_5)
+plColor5 = input.color(color.aqua, "Low Color", group = GRP_CROSSES_5)
+
+// --- Timeframe 6 ---
+string GRP_PIVOTS_6 = "Pivot Settings (TF6)"
+enableTF6 = input.bool(false, "Enable Timeframe 6", group = GRP_PIVOTS_6)
+showPivotCrosses6 = input.bool(true, 'Show Pivots', group = GRP_PIVOTS_6)
+timeframeInput6 = input.timeframe('M', 'Timeframe', group = GRP_PIVOTS_6)
+leftBars6 = input.int(6, 'Left Strength', group = GRP_PIVOTS_6, minval = 1)
+rightBars6 = input.int(6, 'Right Strength', group = GRP_PIVOTS_6, minval = 1)
+
+string GRP_CROSSES_6 = "Pivot Cross Colors (TF6)"
+phColor6 = input.color(color.white, "High Color", group = GRP_CROSSES_6)
+plColor6 = input.color(color.gray, "Low Color", group = GRP_CROSSES_6)
+
+
+// =============================================================================
+// FUNCTIONS
+// =============================================================================
+int MAX_DRAWING_OBJECTS = 500
+
+checkForPivot(array<float> history, int pivot_idx, int left_strength, int right_strength, bool is_high) =>
+    is_pivot = true
+    if array.size(history) < left_strength + right_strength + 1 or pivot_idx < left_strength or pivot_idx > array.size(history) - 1 - right_strength
+        is_pivot := false
+    else
+        pivot_price = array.get(history, pivot_idx)
+        for i = 0 to left_strength + right_strength
+            if i != left_strength
+                neighbor_price = array.get(history, pivot_idx - left_strength + i)
+                if is_high and neighbor_price >= pivot_price
+                    is_pivot := false
+                    break
+                if not is_high and neighbor_price <= pivot_price
+                    is_pivot := false
+                    break
+    is_pivot
+
+drawPivotCross(array<label> labelsArray, int bar_time, float price, color p_color) =>
+    label newLabel = label.new(bar_time, price, xloc=xloc.bar_time, style=label.style_xcross, color=p_color, size=size.tiny)
+    array.push(labelsArray, newLabel)
+    if array.size(labelsArray) > MAX_DRAWING_OBJECTS
+        label.delete(array.shift(labelsArray))
+
+// =============================================================================
+// PIVOT LOGIC WRAPPER
+// =============================================================================
+processPivotLogic(bool enable, bool showPivots, string timeframe, int leftBars, int rightBars, color phColor, color plColor) =>
+    bool isHistoryCollectionActive = enable and timeframe != ''
+    bool is_new_bar = isHistoryCollectionActive and (nz(ta.change(time(timeframe))) != 0)
+
+    var label[] pivotLabels = array.new_label()
+    var float session_high = high
+    var float session_low = low
+    var int session_high_time = time
+    var int session_low_time = time
+    var array<float> history_highs = array.new_float()
+    var array<float> history_lows = array.new_float()
+    var array<int> history_times_high = array.new_int()
+    var array<int> history_times_low = array.new_int()
+
+    if isHistoryCollectionActive
+        if is_new_bar
+            session_high := high
+            session_low := low
+            session_high_time := time
+            session_low_time := time
+        else
+            if high >= session_high
+                session_high := high
+                session_high_time := time
+            if low <= session_low
+                session_low := low
+                session_low_time := time
+
+        if is_new_bar
+            array.push(history_highs, session_high[1])
+            array.push(history_times_high, session_high_time[1])
+            array.push(history_lows, session_low[1])
+            array.push(history_times_low, session_low_time[1])
+
+            if showPivots
+                int pivot_check_index = array.size(history_highs) - 1 - rightBars
+                if pivot_check_index >= 0
+                    bool is_pivot_high = checkForPivot(history_highs, pivot_check_index, leftBars, rightBars, true)
+                    if is_pivot_high
+                        float pivot_price = array.get(history_highs, pivot_check_index)
+                        int pivot_time = array.get(history_times_high, pivot_check_index)
+                        drawPivotCross(pivotLabels, pivot_time, pivot_price, phColor)
+
+                    bool is_pivot_low = checkForPivot(history_lows, pivot_check_index, leftBars, rightBars, false)
+                    if is_pivot_low
+                        float pivot_price = array.get(history_lows, pivot_check_index)
+                        int pivot_time = array.get(history_times_low, pivot_check_index)
+                        drawPivotCross(pivotLabels, pivot_time, pivot_price, plColor)
+
+// =============================================================================
+// EXECUTION
+// =============================================================================
+processPivotLogic(enableTF1, showPivotCrosses1, timeframeInput1, leftBars1, rightBars1, phColor1, plColor1)
+processPivotLogic(enableTF2, showPivotCrosses2, timeframeInput2, leftBars2, rightBars2, phColor2, plColor2)
+processPivotLogic(enableTF3, showPivotCrosses3, timeframeInput3, leftBars3, rightBars3, phColor3, plColor3)
+processPivotLogic(enableTF4, showPivotCrosses4, timeframeInput4, leftBars4, rightBars4, phColor4, plColor4)
+processPivotLogic(enableTF5, showPivotCrosses5, timeframeInput5, leftBars5, rightBars5, phColor5, plColor5)
+processPivotLogic(enableTF6, showPivotCrosses6, timeframeInput6, leftBars6, rightBars6, phColor6, plColor6)
