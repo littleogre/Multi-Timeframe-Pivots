@@ -1,11 +1,10 @@
 //@version=6
 // -----------------------------------------------------------------------------
-// Title:         Standalone Pivot Indicator (v6 - Visual Polish)
+// Title:         Standalone Pivot Indicator (v6 - Consistent Spacing)
 // Author:        Nick / AI Assistant
-// Description:   1. Restored visual spacing (padding) for markers.
-//                2. High labels (HH/LH) placed above the marker.
-//                3. Low labels (LL/HL) placed below the marker.
-//                4. Added comprehensive tooltips for all settings.
+// Description:   1. Visual Consistency: Session markers now match TF marker padding.
+//                2. Strict Zig-Zag: Enforces High-Low alternation on all 6 TFs.
+//                3. Error-Free: Functions defined before execution calls.
 // -----------------------------------------------------------------------------
 
 indicator('Standalone Pivot Indicator', 'Pivots', overlay = true, max_labels_count=500, max_lines_count=500)
@@ -15,67 +14,62 @@ import TradingView/ta/6 as ta
 // =============================================================================
 // INPUTS
 // =============================================================================
-
 string GRP_UPGRADE    = "Global Filters"
 allowEqualPivots      = input.bool(true, "Equal pivots", group = GRP_UPGRADE, tooltip="Allows pivots to be detected on double tops or bottoms where price is exactly equal.")
-enableSequenceFilter  = input.bool(true, "Filter weak pivots", group = GRP_UPGRADE, tooltip="Enforces a strict High-Low-High sequence. It removes minor 'inside' pivots to show clearer structure.")
-textSize              = input.string(size.normal, "Label Size", options=[size.small, size.normal, size.large, size.huge], group=GRP_UPGRADE, tooltip="Changes the size of the text (HH, LL, etc.) displayed on the chart.")
+enableSequenceFilter  = input.bool(true, "Filter weak pivots", group = GRP_UPGRADE, tooltip="Enforces a strict High-Low-High sequence.")
+textSize              = input.string(size.normal, "Label Size", options=[size.small, size.normal, size.large, size.huge], group=GRP_UPGRADE)
 
-// --- Session ---
+// --- Session Settings ---
 string GRP_SESSION_SET = "Session Settings"
-enableSession      = input.bool(false, "Enable Session", group = GRP_SESSION_SET, tooltip="Enable to track the highest and lowest prices of a specific session or higher timeframe.")
-showSessionMarkers = input.bool(true, "Show Markers", group = GRP_SESSION_SET, tooltip="Toggles the visual 'X' markers for the session Highs and Lows.")
-sessionTimeframe   = input.timeframe('D', "Timeframe", group = GRP_SESSION_SET, tooltip="The timeframe used to calculate the session high and low (e.g., 'D' for Daily session).")
+enableSession      = input.bool(false, "Enable Session", group = GRP_SESSION_SET)
+showSessionMarkers = input.bool(true, "Show Markers", group = GRP_SESSION_SET)
+sessionTimeframe   = input.timeframe('D', "Timeframe", group = GRP_SESSION_SET)
 
 string GRP_SESSION_COL = "Session Colors"
-sessionHighColor   = input.color(color.red, "High Color", group = GRP_SESSION_COL, tooltip="Color for the session high marker.")
-sessionLowColor    = input.color(color.green, "Low Color", group = GRP_SESSION_COL, tooltip="Color for the session low marker.")
+sessionHighColor   = input.color(color.red, "High Color", group = GRP_SESSION_COL)
+sessionLowColor    = input.color(color.green, "Low Color", group = GRP_SESSION_COL)
 
 // --- Timeframe Settings (TF 1-6) ---
-// Note: Tooltips explain TF role
 // TF1
 string GRP_1 = "Pivot Settings (TF1)"
-enableTF1 = input.bool(false, "Enable TF1", group = GRP_1, tooltip="Enable calculation for the first timeframe.")
-showCross1 = input.bool(true, 'Show Crosses', group = GRP_1, tooltip="Show 'X' markers on TF1 pivots.")
-showText1 = input.bool(true, 'Show Text (HH/LL)', group = GRP_1, tooltip="Show HH/LL/LH/HL text labels on TF1 pivots.")
-tf1 = input.timeframe('5', 'Timeframe', group = GRP_1, tooltip="Data source timeframe for TF1.")
-lb1 = input.int(1, 'Left Strength', group = GRP_1, minval = 1, tooltip="Number of bars to the left required to confirm a pivot.")
-rb1 = input.int(1, 'Right Strength', group = GRP_1, minval = 1, tooltip="Number of bars to the right required to confirm a pivot.")
+enableTF1 = input.bool(true, "Enable TF1", group = GRP_1)
+showCross1 = input.bool(true, 'Show Crosses', group = GRP_1), showText1 = input.bool(true, 'Show Text (HH/LL)', group = GRP_1)
+tf1 = input.timeframe('5', 'Timeframe', group = GRP_1), lb1 = input.int(2, 'Left', group = GRP_1, minval = 1), rb1 = input.int(2, 'Right', group = GRP_1, minval = 1)
 phc1 = input.color(color.red, "High Color", group = GRP_1), plc1 = input.color(color.green, "Low Color", group = GRP_1)
 
 // TF2
 string GRP_2 = "Pivot Settings (TF2)"
-enableTF2 = input.bool(false, "Enable TF2", group = GRP_2, tooltip="Enable calculation for the second timeframe.")
+enableTF2 = input.bool(false, "Enable TF2", group = GRP_2)
 showCross2 = input.bool(true, 'Show Crosses', group = GRP_2), showText2 = input.bool(true, 'Show Text (HH/LL)', group = GRP_2)
-tf2 = input.timeframe('60', 'Timeframe', group = GRP_2), lb2 = input.int(2, 'Left', group = GRP_2, minval = 1), rb2 = input.int(2, 'Right', group = GRP_2, minval = 1)
+tf2 = input.timeframe('60', 'Timeframe', group = GRP_2), lb2 = input.int(3, 'Left', group = GRP_2), rb2 = input.int(3, 'Right', group = GRP_2)
 phc2 = input.color(color.blue, "High Color", group = GRP_2), plc2 = input.color(color.yellow, "Low Color", group = GRP_2)
 
 // TF3
 string GRP_3 = "Pivot Settings (TF3)"
-enableTF3 = input.bool(false, "Enable TF3", group = GRP_3, tooltip="Enable calculation for the third timeframe.")
+enableTF3 = input.bool(false, "Enable TF3", group = GRP_3)
 showCross3 = input.bool(true, 'Show Crosses', group = GRP_3), showText3 = input.bool(true, 'Show Text (HH/LL)', group = GRP_3)
-tf3 = input.timeframe('240', 'Timeframe', group = GRP_3), lb3 = input.int(3, 'Left', group = GRP_3, minval = 1), rb3 = input.int(3, 'Right', group = GRP_3, minval = 1)
+tf3 = input.timeframe('240', 'Timeframe', group = GRP_3), lb3 = input.int(4, 'Left', group = GRP_3), rb3 = input.int(4, 'Right', group = GRP_3)
 phc3 = input.color(color.orange, "High Color", group = GRP_3), plc3 = input.color(color.purple, "Low Color", group = GRP_3)
 
 // TF4
 string GRP_4 = "Pivot Settings (TF4)"
-enableTF4 = input.bool(false, "Enable TF4", group = GRP_4, tooltip="Enable calculation for the fourth timeframe.")
+enableTF4 = input.bool(false, "Enable TF4", group = GRP_4)
 showCross4 = input.bool(true, 'Show Crosses', group = GRP_4), showText4 = input.bool(true, 'Show Text (HH/LL)', group = GRP_4)
-tf4 = input.timeframe('D', 'Timeframe', group = GRP_4), lb4 = input.int(4, 'Left', group = GRP_4, minval = 1), rb4 = input.int(4, 'Right', group = GRP_4, minval = 1)
+tf4 = input.timeframe('D', 'Timeframe', group = GRP_4), lb4 = input.int(5, 'Left', group = GRP_4), rb4 = input.int(5, 'Right', group = GRP_4)
 phc4 = input.color(color.maroon, "High Color", group = GRP_4), plc4 = input.color(color.lime, "Low Color", group = GRP_4)
 
 // TF5
 string GRP_5 = "Pivot Settings (TF5)"
-enableTF5 = input.bool(false, "Enable TF5", group = GRP_5, tooltip="Enable calculation for the fifth timeframe.")
+enableTF5 = input.bool(false, "Enable TF5", group = GRP_5)
 showCross5 = input.bool(true, 'Show Crosses', group = GRP_5), showText5 = input.bool(true, 'Show Text (HH/LL)', group = GRP_5)
-tf5 = input.timeframe('W', 'Timeframe', group = GRP_5), lb5 = input.int(5, 'Left', group = GRP_5, minval = 1), rb5 = input.int(5, 'Right', group = GRP_5, minval = 1)
+tf5 = input.timeframe('W', 'Timeframe', group = GRP_5), lb5 = input.int(6, 'Left', group = GRP_5), rb5 = input.int(6, 'Right', group = GRP_5)
 phc5 = input.color(color.fuchsia, "High Color", group = GRP_5), plc5 = input.color(color.aqua, "Low Color", group = GRP_5)
 
 // TF6
 string GRP_6 = "Pivot Settings (TF6)"
-enableTF6 = input.bool(false, "Enable TF6", group = GRP_6, tooltip="Enable calculation for the sixth timeframe.")
+enableTF6 = input.bool(false, "Enable TF6", group = GRP_6)
 showCross6 = input.bool(true, 'Show Crosses', group = GRP_6), showText6 = input.bool(true, 'Show Text (HH/LL)', group = GRP_6)
-tf6 = input.timeframe('M', 'Timeframe', group = GRP_6), lb6 = input.int(6, 'Left', group = GRP_6, minval = 1), rb6 = input.int(6, 'Right', group = GRP_6, minval = 1)
+tf6 = input.timeframe('M', 'Timeframe', group = GRP_6), lb6 = input.int(7, 'Left', group = GRP_6), rb6 = input.int(7, 'Right', group = GRP_6)
 phc6 = input.color(color.white, "High Color", group = GRP_6), plc6 = input.color(color.gray, "Low Color", group = GRP_6)
 
 // =============================================================================
@@ -83,8 +77,9 @@ phc6 = input.color(color.white, "High Color", group = GRP_6), plc6 = input.color
 // =============================================================================
 int MAX_DRAWING_OBJECTS = 500
 float atrVal            = nz(ta.atr(14))
-float priceOffset       = atrVal * 0.2 // Base padding
+float priceOffset       = atrVal * 0.2
 
+// Function to detect pivots manually
 checkForPivot(array<float> history, int pivot_idx, int left_strength, int right_strength, bool is_high, bool allowFlat) =>
     bool is_pivot = true
     if array.size(history) < left_strength + right_strength + 1 or pivot_idx < left_strength or pivot_idx > array.size(history) - 1 - right_strength
@@ -104,37 +99,60 @@ checkForPivot(array<float> history, int pivot_idx, int left_strength, int right_
                         break
     is_pivot
 
-// UPDATED: Enhanced Drawing Function with Padding Logic
+// Dynamic Label Drawing with returns for management
 drawPivotLabel(array<label> labelsArray, int bar_time, float price, color p_color, string txt, bool isHigh, bool showCross, bool showText, string tSize, float offset) =>
     float crossPrice = isHigh ? price + offset : price - offset
-    
-    // Draw the "X" Cross marker with spacing
+    label xLbl = na
+    label tLbl = na
     if showCross
-        label xLabel = label.new(bar_time, crossPrice, text="", xloc=xloc.bar_time, style=label.style_xcross, color=p_color, size=size.tiny)
-        array.push(labelsArray, xLabel)
-
-    // Draw the Text Label positioned outside the cross
+        xLbl := label.new(bar_time, crossPrice, text="", xloc=xloc.bar_time, style=label.style_xcross, color=p_color, size=size.tiny)
+        array.push(labelsArray, xLbl)
     if showText and txt != ""
         lblStyle = isHigh ? label.style_label_down : label.style_label_up
-        // The label's point sits on 'crossPrice', putting text above or below the X
-        label tLabel = label.new(bar_time, crossPrice, text=txt, xloc=xloc.bar_time, style=lblStyle, color=color.new(p_color, 100), textcolor=p_color, size=tSize)
-        array.push(labelsArray, tLabel)
-
+        tLbl := label.new(bar_time, crossPrice, text=txt, xloc=xloc.bar_time, style=lblStyle, color=color.new(p_color, 100), textcolor=p_color, size=tSize)
+        array.push(labelsArray, tLbl)
     if array.size(labelsArray) > MAX_DRAWING_OBJECTS
         label.delete(array.shift(labelsArray))
+    [xLbl, tLbl]
 
 // =============================================================================
-// CORE LOGIC: PROCESS PIVOTS
+// DEFINITION: SESSION LOGIC
+// =============================================================================
+processSessionLogic(bool enable, bool showMarkers, string tf, color cHigh, color cLow, float offset) =>
+    bool isActive    = enable and tf != ''
+    bool isNewSesBar = isActive and nz(ta.change(time(tf))) != 0
+    var label[] sLabels = array.new_label()
+    var float sH = high, var float sL = low
+    var int sHT = time, var int sLT = time
+    
+    if isNewSesBar
+        if not na(sH) and showMarkers
+            // Session high marker now uses 'offset' for consistency
+            drawPivotLabel(sLabels, sHT, sH, cHigh, "", true, true, false, size.tiny, offset)
+        if not na(sL) and showMarkers
+            // Session low marker now uses 'offset' for consistency
+            drawPivotLabel(sLabels, sLT, sL, cLow, "", false, true, false, size.tiny, offset)
+        sH := high, sL := low, sHT := time, sLT := time
+    else if isActive
+        if high >= sH
+            sH := high, sHT := time
+        if low <= sL
+            sL := low, sLT := time
+
+// =============================================================================
+// DEFINITION: PIVOT LOGIC
 // =============================================================================
 processPivotLogic(bool enable, bool showPivots, bool showText, string tf, int leftBars, int rightBars, color phColor, color plColor, float offset, bool filterActive, bool flatActive, string tSize) =>
     bool isHistoryActive = enable and tf != ''
     bool is_new_bar      = isHistoryActive and (nz(ta.change(time(tf))) != 0)
 
-    var label  lastLabelObj   = na
-    var float  lastPivotPrice = na
     var string lastPivotType  = "NONE" 
+    var float  lastPivotPrice = na
     var float  prevHighPrice  = na
     var float  prevLowPrice   = na
+    
+    var label lastHCross = na, var label lastHText = na
+    var label lastLCross = na, var label lastLText = na
 
     var label[] pivotLabels   = array.new_label()
     var float   session_h     = high
@@ -163,54 +181,45 @@ processPivotLogic(bool enable, bool showPivots, bool showText, string tf, int le
 
             int check_idx = array.size(h_history) - 1 - rightBars
             if check_idx >= 0
+                // --- HIGH PIVOT (Strict Zig-Zag) ---
                 if checkForPivot(h_history, check_idx, leftBars, rightBars, true, flatActive)
                     float p_price = array.get(h_history, check_idx)
                     int p_time    = array.get(h_times, check_idx)
-                    bool canDraw  = true
-                    if filterActive and lastPivotType == "HIGH"
-                        if p_price >= lastPivotPrice
-                            label.delete(lastLabelObj)
-                        else
-                            canDraw := false
+                    bool canDraw  = false
+                    if filterActive
+                        if lastPivotType != "HIGH"
+                            canDraw := true
+                        else if p_price > lastPivotPrice // Replace with Higher High
+                            label.delete(lastHCross), label.delete(lastHText)
+                            canDraw := true
+                    else
+                        canDraw := true
+
                     if canDraw
                         string t = na(prevHighPrice) ? "H" : (p_price > prevHighPrice ? "HH" : (p_price < prevHighPrice ? "LH" : "H"))
-                        drawPivotLabel(pivotLabels, p_time, p_price, phColor, t, true, showPivots, showText, tSize, offset)
+                        [xc, tl] = drawPivotLabel(pivotLabels, p_time, p_price, phColor, t, true, showPivots, showText, tSize, offset)
+                        lastHCross := xc, lastHText := tl
                         lastPivotPrice := p_price, prevHighPrice := p_price, lastPivotType := "HIGH"
 
+                // --- LOW PIVOT (Strict Zig-Zag) ---
                 if checkForPivot(l_history, check_idx, leftBars, rightBars, false, flatActive)
                     float p_price = array.get(l_history, check_idx)
                     int p_time    = array.get(l_times, check_idx)
-                    bool canDraw  = true
-                    if filterActive and lastPivotType == "LOW"
-                        if p_price <= lastPivotPrice
-                            label.delete(lastLabelObj)
-                        else
-                            canDraw := false
+                    bool canDraw  = false
+                    if filterActive
+                        if lastPivotType != "LOW"
+                            canDraw := true
+                        else if p_price < lastPivotPrice // Replace with Lower Low
+                            label.delete(lastLCross), label.delete(lastLText)
+                            canDraw := true
+                    else
+                        canDraw := true
+
                     if canDraw
                         string t = na(prevLowPrice) ? "L" : (p_price < prevLowPrice ? "LL" : (p_price > prevLowPrice ? "HL" : "L"))
-                        drawPivotLabel(pivotLabels, p_time, p_price, plColor, t, false, showPivots, showText, tSize, offset)
+                        [xc, tl] = drawPivotLabel(pivotLabels, p_time, p_price, plColor, t, false, showPivots, showText, tSize, offset)
+                        lastLCross := xc, lastLText := tl
                         lastPivotPrice := p_price, prevLowPrice := p_price, lastPivotType := "LOW"
-
-// =============================================================================
-// LOGIC: SESSION STRUCTURE (No Text)
-// =============================================================================
-processSessionLogic(bool enable, bool showMarkers, string tf, color cHigh, color cLow, float offset) =>
-    bool isActive    = enable and tf != ''
-    bool isNewSesBar = isActive and nz(ta.change(time(tf))) != 0
-    var label[] sLabels = array.new_label()
-    var float sH = high, sL = low, int sHT = time, sLT = time
-    
-    if isNewSesBar
-        if not na(sH) and showMarkers
-            drawPivotLabel(sLabels, sHT, sH, cHigh, "", true, true, false, size.tiny, offset)
-        if not na(sL) and showMarkers
-            drawPivotLabel(sLabels, sLT, sL, cLow, "", false, true, false, size.tiny, offset)
-        sH := high, sL := low, sHT := time, sLT := time
-    else if isActive
-        if high >= sH
-            sH := high, sHT := time
-        if low <= sL
-            sL := low, sLT := time
 
 // =============================================================================
 // EXECUTION
