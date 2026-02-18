@@ -1,10 +1,11 @@
 //@version=6
 // -----------------------------------------------------------------------------
-// Title:         Standalone Pivot Indicator (v6 - Consistent Spacing)
+// Title:         Standalone Pivot Indicator (v6 - Precise Trend Logic)
 // Author:        Nick / AI Assistant
-// Description:   1. Visual Consistency: Session markers now match TF marker padding.
+// Description:   1. Visual Consistency: Session markers match TF marker padding.
 //                2. Strict Zig-Zag: Enforces High-Low alternation on all 6 TFs.
-//                3. Error-Free: Functions defined before execution calls.
+//                3. Precise HH/LL: Uses pre-previous baseline tracking to ensure 
+//                   labels remain accurate during pivot replacements.
 // -----------------------------------------------------------------------------
 
 indicator('Standalone Pivot Indicator', 'Pivots', overlay = true, max_labels_count=500, max_lines_count=500)
@@ -76,8 +77,8 @@ phc6 = input.color(color.white, "High Color", group = GRP_6), plc6 = input.color
 // GLOBALS & HELPER FUNCTIONS
 // =============================================================================
 int MAX_DRAWING_OBJECTS = 500
-float atrVal            = nz(ta.atr(14))
-float priceOffset       = atrVal * 0.2
+float atrVal             = nz(ta.atr(14))
+float priceOffset        = atrVal * 0.2
 
 // Function to detect pivots manually
 checkForPivot(array<float> history, int pivot_idx, int left_strength, int right_strength, bool is_high, bool allowFlat) =>
@@ -99,7 +100,7 @@ checkForPivot(array<float> history, int pivot_idx, int left_strength, int right_
                         break
     is_pivot
 
-// Dynamic Label Drawing with returns for management
+// Dynamic Label Drawing
 drawPivotLabel(array<label> labelsArray, int bar_time, float price, color p_color, string txt, bool isHigh, bool showCross, bool showText, string tSize, float offset) =>
     float crossPrice = isHigh ? price + offset : price - offset
     label xLbl = na
@@ -127,10 +128,8 @@ processSessionLogic(bool enable, bool showMarkers, string tf, color cHigh, color
     
     if isNewSesBar
         if not na(sH) and showMarkers
-            // Session high marker now uses 'offset' for consistency
             drawPivotLabel(sLabels, sHT, sH, cHigh, "", true, true, false, size.tiny, offset)
         if not na(sL) and showMarkers
-            // Session low marker now uses 'offset' for consistency
             drawPivotLabel(sLabels, sLT, sL, cLow, "", false, true, false, size.tiny, offset)
         sH := high, sL := low, sHT := time, sLT := time
     else if isActive
@@ -144,12 +143,16 @@ processSessionLogic(bool enable, bool showMarkers, string tf, color cHigh, color
 // =============================================================================
 processPivotLogic(bool enable, bool showPivots, bool showText, string tf, int leftBars, int rightBars, color phColor, color plColor, float offset, bool filterActive, bool flatActive, string tSize) =>
     bool isHistoryActive = enable and tf != ''
-    bool is_new_bar      = isHistoryActive and (nz(ta.change(time(tf))) != 0)
+    bool is_new_bar       = isHistoryActive and (nz(ta.change(time(tf))) != 0)
 
     var string lastPivotType  = "NONE" 
     var float  lastPivotPrice = na
+    
+    // Tracking for HH/LL calculation
     var float  prevHighPrice  = na
+    var float  prePrevHigh    = na 
     var float  prevLowPrice   = na
+    var float  prePrevLow     = na 
     
     var label lastHCross = na, var label lastHText = na
     var label lastLCross = na, var label lastLText = na
@@ -181,45 +184,69 @@ processPivotLogic(bool enable, bool showPivots, bool showText, string tf, int le
 
             int check_idx = array.size(h_history) - 1 - rightBars
             if check_idx >= 0
-                // --- HIGH PIVOT (Strict Zig-Zag) ---
+                // --- HIGH PIVOT ---
                 if checkForPivot(h_history, check_idx, leftBars, rightBars, true, flatActive)
                     float p_price = array.get(h_history, check_idx)
                     int p_time    = array.get(h_times, check_idx)
                     bool canDraw  = false
+                    bool isReplacement = false
+                    
                     if filterActive
                         if lastPivotType != "HIGH"
                             canDraw := true
-                        else if p_price > lastPivotPrice // Replace with Higher High
+                            isReplacement := false
+                        else if p_price > lastPivotPrice
                             label.delete(lastHCross), label.delete(lastHText)
                             canDraw := true
+                            isReplacement := true
                     else
                         canDraw := true
 
                     if canDraw
-                        string t = na(prevHighPrice) ? "H" : (p_price > prevHighPrice ? "HH" : (p_price < prevHighPrice ? "LH" : "H"))
+                        float baseline = isReplacement ? prePrevHigh : prevHighPrice
+                        string t = na(baseline) ? "H" : (p_price > baseline ? "HH" : (p_price < baseline ? "LH" : "H"))
+                        
                         [xc, tl] = drawPivotLabel(pivotLabels, p_time, p_price, phColor, t, true, showPivots, showText, tSize, offset)
                         lastHCross := xc, lastHText := tl
-                        lastPivotPrice := p_price, prevHighPrice := p_price, lastPivotType := "HIGH"
+                        lastPivotPrice := p_price
+                        
+                        if not isReplacement
+                            prePrevHigh := prevHighPrice 
+                        
+                        prevHighPrice := p_price
+                        lastPivotType := "HIGH"
 
-                // --- LOW PIVOT (Strict Zig-Zag) ---
+                // --- LOW PIVOT ---
                 if checkForPivot(l_history, check_idx, leftBars, rightBars, false, flatActive)
                     float p_price = array.get(l_history, check_idx)
                     int p_time    = array.get(l_times, check_idx)
                     bool canDraw  = false
+                    bool isReplacement = false
+                    
                     if filterActive
                         if lastPivotType != "LOW"
                             canDraw := true
-                        else if p_price < lastPivotPrice // Replace with Lower Low
+                            isReplacement := false
+                        else if p_price < lastPivotPrice
                             label.delete(lastLCross), label.delete(lastLText)
                             canDraw := true
+                            isReplacement := true
                     else
                         canDraw := true
 
                     if canDraw
-                        string t = na(prevLowPrice) ? "L" : (p_price < prevLowPrice ? "LL" : (p_price > prevLowPrice ? "HL" : "L"))
+                        float baseline = isReplacement ? prePrevLow : prevLowPrice
+                        string t = na(baseline) ? "L" : (p_price < baseline ? "LL" : (p_price > baseline ? "HL" : "L"))
+                        
                         [xc, tl] = drawPivotLabel(pivotLabels, p_time, p_price, plColor, t, false, showPivots, showText, tSize, offset)
                         lastLCross := xc, lastLText := tl
-                        lastPivotPrice := p_price, prevLowPrice := p_price, lastPivotType := "LOW"
+                        lastPivotPrice := p_price
+                        
+                        if not isReplacement
+                            prePrevLow := prevLowPrice
+                            
+                        prevLowPrice := p_price
+                        lastPivotType := "LOW"
 
 // =============================================================================
 // EXECUTION
